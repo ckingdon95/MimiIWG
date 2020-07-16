@@ -185,16 +185,13 @@ end
 
 function page_scenario_func(mcs::SimulationInstance, tup::Tuple)
     # Unpack the scenario arguments
-    (scenario_choice, rate) = tup 
+    (scenario_choice,) = tup 
     global scenario_num = Int(scenario_choice)
-    global rate_num = findfirst(isequal(rate), Mimi.payload(mcs)[1])
 
     # Build the page versions for this scenario
     base, marginal = mcs.models
     set_param!(base, :IWGScenarioChoice, :scenario_num, scenario_num)
     set_param!(marginal, :IWGScenarioChoice, :scenario_num, scenario_num)
-    update_param!(base, :ptp_timepreference, rate*100)  # update the pure rate of time preference for this scenario's discount rate
-    update_param!(marginal, :ptp_timepreference, rate*100)  # update the pure rate of time preference for this scenario's discount rate
 
     Mimi.build(base)
     Mimi.build(marginal)
@@ -206,31 +203,20 @@ function page_post_trial_func(mcs::SimulationInstance, trialnum::Int, ntimesteps
     base, marginal = mcs.models 
 
     # Unpack the payload object 
-    discount_rates, discount_factors, gas, perturbation_years, SCC_values, SCC_values_domestic = Mimi.payload(mcs)
+    prtp, eta, gas, perturbation_years, SCC_values, SCC_values_domestic = Mimi.payload(mcs)
 
-    DF = discount_factors[rate_num]
-    td_base = base[:EquityWeighting, :td_totaldiscountedimpacts]
-    if SCC_values_domestic !== nothing 
-        td_base_domestic = sum(base[:EquityWeighting, :addt_equityweightedimpact_discountedaggregated][:, 2])  # US is the second region
-    end
-    EMUC = base[:EquityWeighting, :emuc_utilityconvexity]
-    UDFT_base = DF .* (base[:EquityWeighting, :cons_percap_consumption][:, 1] / base[:EquityWeighting, :cons_percap_consumption_0][1]) .^ (-EMUC)    
-
-    for (j, pyear) in enumerate(perturbation_years)
-        idx = getpageindexfromyear(pyear)
+    for (i, pyear) in enumerate(perturbation_years)
 
         perturb_marginal_page_emissions!(base, marginal, gas, pyear)
         run(marginal)
 
-        td_marginal = marginal[:EquityWeighting, :td_totaldiscountedimpacts]   
-        pulse_size = gas == :CO2 ? 100_000 : 1          
-        scc = ((td_marginal / UDFT_base[idx]) - (td_base / UDFT_base[idx])) / pulse_size * page_inflator
+        for (j, _prtp) in enumerate(prtp), (k, _eta) in enumerate(eta)
 
-        if SCC_values_domestic !== nothing 
-            td_marginal_domestic = sum(marginal[:EquityWeighting, :addt_equityweightedimpact_discountedaggregated][:, 2])
-            scc_domestic = ((td_marginal_domestic / UDFT_base[idx]) - (td_base_domestic / UDFT_base[idx])) / pulse_size * page_inflator
-            SCC_values_domestic[trialnum, j, scenario_num, rate_num] = scc_domestic
+            SCC_values[trialnum, i, scenario_num, j, k] = _compute_page_scc(base, marginal, gas, pyear, _prtp, _eta) 
+
+            if SCC_values_domestic !== nothing 
+                SCC_values_domestic[trialnum, i, scenario_num, j, k] = _compute_page_scc(base, marginal, gas, pyear, _prtp, _eta, domestic=true)
+            end
         end
-        SCC_values[trialnum, j, scenario_num, rate_num] = scc   
     end 
 end

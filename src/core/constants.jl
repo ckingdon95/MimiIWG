@@ -88,6 +88,8 @@ function _fund_normalization_factor(gas::Symbol)
         return 1e-7             # Convert from /MtCH4 for ten years to /tons CH4/year
     elseif gas == :N2O
         return 1e-7 * 28/44     # Convert from /MtN for ten years to /tons of N2O/year
+    elseif gas == :SF6
+        return 1e-7
     else
         error("Unknown gas :$gas.")
     end

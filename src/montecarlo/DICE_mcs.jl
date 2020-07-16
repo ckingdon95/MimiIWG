@@ -14,9 +14,8 @@ function get_dice_mcs()
 end
 
 function dice_scenario_func(mcs::SimulationInstance, tup::Tuple)
-    (scenario_choice, rate) = tup
+    (scenario_choice,) = tup
     global scenario_num = Int(scenario_choice)
-    global rate_num = findfirst(isequal(rate), Mimi.payload(mcs)[1])
 
     base, marginal = mcs.models
     set_param!(base, :IWGScenarioChoice, :scenario_num, scenario_num)
@@ -27,17 +26,18 @@ function dice_scenario_func(mcs::SimulationInstance, tup::Tuple)
 end
 
 function dice_post_trial_func(mcs::SimulationInstance, trial::Int, ntimesteps::Int, tup::Tuple)
-    (name, rate) = tup
+    (name,) = tup
     (base, marginal) = mcs.models
 
-    rates, discount_factors, model_years, horizon, gas, perturbation_years, SCC_values, SCC_values_domestic = Mimi.payload(mcs)
+    prtp, eta, model_years, horizon, gas, perturbation_years, SCC_values, SCC_values_domestic = Mimi.payload(mcs)
 
     last_idx = horizon - 2005 + 1
     annual_years = dice_years[1]:horizon
 
     base_consump = base[:neteconomy, :C] 
-
-    DF = discount_factors[rate]             # access the pre-computed discount factor for this rate
+    cpc = base[:neteconomy, :CPC]
+    g_decades = [NaN, [(cpc[t]/cpc[t-1])^(1/10) - 1 for t in 2:length(cpc)]...]
+    g = reduce(vcat, map(x->fill(x, 10), g_decades))
 
     for (idx, pyear) in enumerate(perturbation_years)
 
@@ -51,8 +51,9 @@ function dice_post_trial_func(mcs::SimulationInstance, trial::Int, ntimesteps::I
 
         first_idx = pyear - 2005 + 1
 
-        scc = sum(annual_md[first_idx:last_idx] ./ DF[1:horizon - pyear + 1])
-
-        SCC_values[trial, idx, scenario_num, rate_num] = scc 
+        for (i, rho) in enumerate(prtp), (j, _eta) in enumerate(eta)
+            scc = scc_discrete(annual_md[first_idx:last_idx], prtp, _eta, g[first_idx:last_idx])
+            SCC_values[trial, idx, scenario_num, i, j] = scc 
+        end
     end
 end

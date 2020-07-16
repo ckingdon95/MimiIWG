@@ -99,13 +99,15 @@ end
     compute_scc(model::model_choice, scenario_choice::scenario_choice; 
         gas::Union{Symbol, Nothing} = nothing,
         year::Union{Int, Nothing}=nothing, 
-        discount::Union{Float64, Nothing}=nothing,
+        prtp::Union{Float64, Nothing} = nothing,
+        eta::Float64 = 0.,
         domestic::Bool = false)
 
 Return the deterministic Social Cost of the specified `gas` from one run of the IWG version of 
 the Mimi model `model_choice` with socioeconomic scenario `scenario_choice` for the 
-specified year `year` and constant dicounting with the specified rate `discount`. If `domestic`
-equals `true`, then only domestic damages are used to calculate the SCC. Units of 
+specified year `year` and dicount rate specified by the `prtp` and `eta` keywords. 
+
+If `domestic` equals `true`, then only domestic damages are used to calculate the SCC. Units of 
 the returned SCC value are [2007\$ / metric ton of `gas`]. 
 
 `model_choice` must be one of the following enums: DICE, FUND, or PAGE.
@@ -116,6 +118,8 @@ function compute_scc(model::model_choice, scenario_choice::scenario_choice = not
     gas::Union{Symbol, Nothing} = nothing,
     year::Union{Int, Nothing} = nothing, 
     discount::Union{Float64, Nothing} = nothing,
+    prtp::Union{Float64, Nothing} = nothing,
+    eta::Float64 = 0.,
     domestic::Bool = false)
 
     # Check the gas
@@ -133,18 +137,22 @@ function compute_scc(model::model_choice, scenario_choice::scenario_choice = not
     end
 
     # Check the discount rate
-    if discount === nothing 
-        @warn("No `discount` provided to `compute_scc`; will return SCC for a discount rate of $(_default_discount * 100)%.")
-        discount = _default_discount
+    if discount !== nothing 
+        @warn("The `discount` keyword is deprecated. Use `prtp` keyword for constant discounting instead.")
+        prtp = discount
+    end
+    if prtp === nothing 
+        @warn("No `prtp` provided to `compute_scc`; will return SCC for a discount rate of $(_default_discount * 100)%.")
+        prtp = _default_discount
     end 
 
     # dispatch on provided model choice
     if model == DICE 
-        return compute_dice_scc(scenario_choice, gas, year, discount, domestic = domestic)
+        return compute_dice_scc(scenario_choice, gas, year, prtp, eta, domestic = domestic)
     elseif model == FUND 
-        return compute_fund_scc(scenario_choice, gas, year, discount, domestic = domestic)
+        return compute_fund_scc(scenario_choice, gas, year, prtp, eta, domestic = domestic)
     elseif model == PAGE 
-        return compute_page_scc(scenario_choice, gas, year, discount, domestic = domestic)
+        return compute_page_scc(scenario_choice, gas, year, prtp, eta, domestic = domestic)
     else
         error()
     end

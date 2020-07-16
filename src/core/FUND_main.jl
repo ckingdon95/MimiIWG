@@ -124,7 +124,7 @@ end
     If no `discount` is specified, will return undiscounted marginal damages.
     The `income_normalized` parameter indicates whether the damages from the marginal run should be scaled by the ratio of incomes between the base and marginal runs. 
 """
-function get_fund_marginaldamages(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; regional::Bool = false, income_normalized::Bool=true)
+function get_fund_marginaldamages(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; regional::Bool = false, income_normalized::Bool=true, return_m::Bool=false)
 
     # Check the emissions year
     if ! (year in fund_years)
@@ -156,11 +156,16 @@ function get_fund_marginaldamages(scenario_choice::scenario_choice, gas::Symbol,
         DF = zeros(nyears)
         first = MimiFUND.getindexfromyear(year)
         DF[first:end] = [1/(1+discount)^t for t in 0:(nyears-first)]
-        return diff[1:nyears, :] .* DF
+        md = diff[1:nyears, :] .* DF
     else
-        return diff[1:nyears, :]
+        md = diff[1:nyears, :]
     end
 
+    if return_m
+        return (md, base)
+    else
+        return md
+    end
 end
 
 """
@@ -170,7 +175,7 @@ end
     If no `year` is specified, will return SC for $_default_year.
     If no `discount` is specified, will return SC for a discount rate of $(_default_discount * 100)%.
 """
-function compute_fund_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; domestic::Bool = false, income_normalized::Bool = true)
+function compute_fund_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, prtp::Float64, eta::Float64=0.; domestic::Bool = false, income_normalized::Bool = true)
 
     # Check the emissions year
     if !(year in fund_years)
@@ -178,11 +183,17 @@ function compute_fund_scc(scenario_choice::scenario_choice, gas::Symbol, year::I
     end
 
     if domestic
-        md = get_fund_marginaldamages(scenario_choice, gas, year, discount, income_normalized = income_normalized, regional = true)[:, 1]
+        all_md, m = get_fund_marginaldamages(scenario_choice, gas, year, 0., income_normalized = income_normalized, regional = true, return_m = true)
+        md = all_md[:, 1]
     else
-        md = get_fund_marginaldamages(scenario_choice, gas, year, discount, income_normalized = income_normalized, regional = false)
+        md, m = get_fund_marginaldamages(scenario_choice, gas, year, 0., income_normalized = income_normalized, regional = false, return_m = true)
     end
-        
-    scc = sum(md[MimiFUND.getindexfromyear(year):end])    # Sum from the perturbation year to the end (avoid the NaN in the first timestep)
-    return scc 
+
+    p_idx = MimiFUND.getindexfromyear(year)
+    nyears = length(fund_years)
+
+    global_cpc = m[:socioeconomic, :globalconsumption] ./ sum(m[:socioeconomic, :population], dims=2)    #per capita global consumption
+    g = [global_cpc[t]/global_cpc[t-1] - 1 for t in p_idx:nyears]
+
+    return scc_discrete(md[p_idx:end], prtp, eta, g) 
 end

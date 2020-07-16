@@ -134,12 +134,13 @@ function fund_post_trial_func(mcs::SimulationInstance, trialnum::Int, ntimesteps
     damages1 = base[:impactaggregation, :loss]
 
     # Unpack the payload object 
-    discount_rates, model_years, gas, perturbation_years, SCC_values, SCC_values_domestic = Mimi.payload(mcs)
+    prtp, eta, model_years, gas, perturbation_years, SCC_values, SCC_values_domestic = Mimi.payload(mcs)
 
     final = length(model_years)
+    global_cpc = base[:socioeconomic, :globalconsumption] ./ sum(base[:socioeconomic, :population], dims=2)    #per capita global consumption
 
     # Loop through perturbation years for scc calculations, and only re-run the marginal model
-    for (j, pyear) in enumerate(perturbation_years)
+    for (i, pyear) in enumerate(perturbation_years)
 
         MimiFUND.perturb_marginal_emissions!(marginal, pyear)
         run(marginal; ntimesteps=ntimesteps)
@@ -148,24 +149,17 @@ function fund_post_trial_func(mcs::SimulationInstance, trialnum::Int, ntimesteps
         marginaldamages = (damages2 .- damages1) * _fund_normalization_factor(gas)
         global_marginaldamages = sum(marginaldamages, dims = 2)    # sum across regions
 
-        function _compute_scc(pyear, marginaldamages, rates)
-            scc = zeros(length(rates))
-            p_idx = MimiFUND.getindexfromyear(pyear)
+        p_idx = MimiFUND.getindexfromyear(pyear)
+        g = [global_cpc[t]/global_cpc[t-1] - 1 for t in p_idx:final]
+
+        for (j, _prtp) in enumerate(prtp), (k, _eta) in enumerate(eta)
+            SCC_values[trialnum, i, scenario_num, j, k] = scc_discrete(global_marginaldamages[p_idx:final], _prtp, _eta, g) * fund_inflator
             
-            for (i, rate) in enumerate(rates)
-                discount_factor = [(1/(1 + rate)) ^ (t - p_idx) for t in p_idx:final]
-                scc[i] = sum(marginaldamages[p_idx:final] .* discount_factor)
+            if SCC_values_domestic !== nothing
+                domestic_marginaldamages = marginaldamages[:, 1]
+                _eta != 0. ? error("Need to implement Ramsey discounting for domestic SCC.") : nothing
+                SCC_values_domestic[trialnum, i, scenario_num, j, k] = scc_discrete(domestic_marginaldamages[p_idx:final], _prtp, _eta, g) * fund_inflator
             end
-            return scc 
-        end
-
-        scc_global = _compute_scc(pyear, global_marginaldamages, discount_rates)
-        SCC_values[trialnum, j, scenario_num, :] = scc_global * fund_inflator
-
-        if SCC_values_domestic !== nothing
-            domestic_marginaldamages = marginaldamages[:, 1]
-            scc_domestic = _compute_scc(pyear, domestic_marginaldamages, discount_rates)
-            SCC_values_domestic[trialnum, j, scenario_num, :] = scc_domestic * fund_inflator
         end
     end
 end
