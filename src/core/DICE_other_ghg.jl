@@ -3,7 +3,7 @@ other_GHG_input_file = joinpath(@__DIR__, "../../data/IWG_inputs/DICE/CH4N20emis
 f = openxl(other_GHG_input_file)
 
 dice_annual_years = Vector{Int}(readxl(f, "CH4annual!A2:A301")[:])
-decades = dice_annual_years[1]:10:dice_annual_years[end]-9
+decades = dice_annual_years[1]:10:dice_annual_years[end] - 9
 E_CH4A_all = readxl(f, "CH4annual!B2:F301")
 E_N2OA_all = readxl(f, "N20annual!B2:F301")
 
