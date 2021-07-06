@@ -6,31 +6,31 @@
     scenarios = Index()
 
     # Variables (each one has its value set for the chosen scenario in the first timestep)
-    gdp_0 = Variable(index = [region], unit="\$M")
-    grw_gdpgrowthrate = Variable(index = [time, region], unit = "%/year")
-    GDP_per_cap_focus_0_FocusRegionEU = Variable(unit = "\$/person")
-    pop0_initpopulation = Variable(index = [region], unit = "million person")
-    popgrw_populationgrowth = Variable(index=[time, region], unit = "%/year")
-    e0_baselineCO2emissions = Variable(index = [region], unit = "Mtonne/year") # also called AbatementCostsCO2_e0_baselineemissions and AbatementCostParametersCO2_e0_baselineemissions in two components
-    e0_globalCO2emissions = Variable(unit = "Mtonne/year")
-    er_CO2emissionsgrowth = Variable(index = [time, region], unit = "%") # also called AbatementCostsCO2_er_emissionsgrowth
-    f0_CO2baseforcing = Variable(unit = "W/m2")
-    exf_excessforcing = Variable(index = [time], unit = "W/m2")
+    gdp_0 = Variable(index=[region], unit="\$M")
+    grw_gdpgrowthrate = Variable(index=[time, region], unit="%/year")
+    GDP_per_cap_focus_0_FocusRegionEU = Variable(unit="\$/person")
+    pop0_initpopulation = Variable(index=[region], unit="million person")
+    popgrw_populationgrowth = Variable(index=[time, region], unit="%/year")
+    e0_baselineCO2emissions = Variable(index=[region], unit="Mtonne/year") # also called AbatementCostsCO2_e0_baselineemissions and AbatementCostParametersCO2_e0_baselineemissions in two components
+    e0_globalCO2emissions = Variable(unit="Mtonne/year")
+    er_CO2emissionsgrowth = Variable(index=[time, region], unit="%") # also called AbatementCostsCO2_er_emissionsgrowth
+    f0_CO2baseforcing = Variable(unit="W/m2")
+    exf_excessforcing = Variable(index=[time], unit="W/m2")
 
     # The number for which scenario to use 
     scenario_num = Parameter{Integer}()
 
     # Parameters (each one holds all five scenarios)
-    gdp_0_all = Parameter(index = [region, scenarios])
-    grw_gdpgrowthrate_all = Parameter(index = [time, region, scenarios])
-    GDP_per_cap_focus_0_FocusRegionEU_all = Parameter(index = [scenarios])
-    pop0_initpopulation_all = Parameter(index = [region, scenarios])
+    gdp_0_all = Parameter(index=[region, scenarios])
+    grw_gdpgrowthrate_all = Parameter(index=[time, region, scenarios])
+    GDP_per_cap_focus_0_FocusRegionEU_all = Parameter(index=[scenarios])
+    pop0_initpopulation_all = Parameter(index=[region, scenarios])
     popgrw_populationgrowth_all = Parameter(index=[time, region, scenarios])
-    e0_baselineCO2emissions_all = Parameter(index = [region, scenarios])     # also called AbatementCostsCO2_e0_baselineemissions and AbatementCostParametersCO2_e0_baselineemissions in two components
-    e0_globalCO2emissions_all = Parameter(index = [scenarios])
-    er_CO2emissionsgrowth_all = Parameter(index = [time, region, scenarios])      # also called AbatementCostsCO2_er_emissionsgrowth
-    f0_CO2baseforcing_all = Parameter(index = [scenarios])
-    exf_excessforcing_all = Parameter(index = [time, scenarios])
+    e0_baselineCO2emissions_all = Parameter(index=[region, scenarios])     # also called AbatementCostsCO2_e0_baselineemissions and AbatementCostParametersCO2_e0_baselineemissions in two components
+    e0_globalCO2emissions_all = Parameter(index=[scenarios])
+    er_CO2emissionsgrowth_all = Parameter(index=[time, region, scenarios])      # also called AbatementCostsCO2_er_emissionsgrowth
+    f0_CO2baseforcing_all = Parameter(index=[scenarios])
+    exf_excessforcing_all = Parameter(index=[time, scenarios])
 
     function run_timestep(p, v, d, t)
         if is_first(t)

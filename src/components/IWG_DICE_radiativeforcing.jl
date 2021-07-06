@@ -16,7 +16,7 @@
             MAT_avg = 0.9796 * (p.MAT[t - 1] + p.MAT[t]) / 2
         end
 
-        v.FORC[t] = p.fco22x * (log((MAT_avg + 0.000001) / 596.4 ) / log(2)) + p.forcoth[t]
+        v.FORC[t] = p.fco22x * (log((MAT_avg + 0.000001) / 596.4) / log(2)) + p.forcoth[t]
 
     end
 

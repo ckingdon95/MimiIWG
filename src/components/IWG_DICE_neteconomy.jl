@@ -42,10 +42,10 @@
         v.CPC[t] = 1000 * v.C[t] / p.l[t]
 
         # Define function for CPRICE
-        if t.t==26
+        if t.t == 26
             v.CPRICE[t] = v.CPRICE[t - 1]
         else
-            v.CPRICE[t] = p.pbacktime[t] * 1000 * p.MIU[t] ^ (p.expcost2 - 1)
+            v.CPRICE[t] = p.pbacktime[t] * 1000 * p.MIU[t]^(p.expcost2 - 1)
         end
 
     end

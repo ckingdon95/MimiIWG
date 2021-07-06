@@ -1,7 +1,7 @@
 using ExcelReaders
 using MimiIWG
 using Test
-using XLSX: readxlsx
+using XLSX:readxlsx
 
 @testset "DICE" begin
 
@@ -13,11 +13,11 @@ using XLSX: readxlsx
         md = MimiIWG.get_marginaldamages(DICE, MimiIWG.scenarios[1])
 
         scc1 = MimiIWG.compute_scc(DICE, MimiIWG.scenarios[1])
-        scc2 = MimiIWG.compute_scc(DICE, MimiIWG.scenarios[1], domestic = true)
+        scc2 = MimiIWG.compute_scc(DICE, MimiIWG.scenarios[1], domestic=true)
         @test scc2 == 0.1 * scc1
 
         tmp_dir = joinpath(@__DIR__, "tmp")
-        MimiIWG.run_scc_mcs(DICE, trials=2, output_dir = tmp_dir, domestic = true)
+        MimiIWG.run_scc_mcs(DICE, trials=2, output_dir=tmp_dir, domestic=true)
         rm(tmp_dir, recursive=true)
 
     end
@@ -66,7 +66,7 @@ using XLSX: readxlsx
                 end
             end
         end
-
+                
     end 
 
     @testset "Deterministic SC-N2O validation" begin 
