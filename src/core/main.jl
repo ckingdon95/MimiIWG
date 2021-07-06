@@ -24,7 +24,7 @@ julia> set_param!(m2, :IWGScenarioChoice, :scenario_num, 4)
 
 julia> run(m2)
 """
-function get_model(model::model_choice, scenario_choice::Union{scenario_choice, Nothing} = nothing)
+function get_model(model::model_choice, scenario_choice::Union{scenario_choice,Nothing}=nothing)
 
     # dispatch on provided model choice
     if model == DICE 
@@ -57,10 +57,10 @@ values will be summed across regions to return global marginal damages.
 `gas` can be one of :CO2, :CH4, or :N2O, and will default to :CO2 if nothing is specified.
 """
 function get_marginaldamages(model::model_choice, scenario_choice::scenario_choice; 
-    gas::Union{Symbol, Nothing} = nothing,
-    year::Union{Int, Nothing} = nothing, 
-    discount::Union{Float64, Nothing} = nothing,
-    regional::Bool = false)
+    gas::Union{Symbol,Nothing}=nothing,
+    year::Union{Int,Nothing}=nothing, 
+    discount::Union{Float64,Nothing}=nothing,
+    regional::Bool=false)
 
     # Check the gas
     if gas === nothing
@@ -86,9 +86,9 @@ function get_marginaldamages(model::model_choice, scenario_choice::scenario_choi
     if model == DICE 
         return get_dice_marginaldamages(scenario_choice, gas, year, discount)
     elseif model == FUND 
-        return get_fund_marginaldamages(scenario_choice, gas, year, discount, regional = regional)
+        return get_fund_marginaldamages(scenario_choice, gas, year, discount, regional=regional)
     elseif model == PAGE 
-        return get_page_marginaldamages(scenario_choice, gas, year, discount, regional = regional)
+        return get_page_marginaldamages(scenario_choice, gas, year, discount, regional=regional)
     else
         error()
     end
@@ -112,11 +112,11 @@ the returned SCC value are [2007\$ / metric ton of `gas`].
 `scenario_choice` must be one of the following enums: USG1, USG2, USG3, USG4, or USG5.
 `gas` can be one of :CO2, :CH4, or :N2O, and will default to :CO2 if nothing is specified.
 """
-function compute_scc(model::model_choice, scenario_choice::scenario_choice = nothing; 
-    gas::Union{Symbol, Nothing} = nothing,
-    year::Union{Int, Nothing} = nothing, 
-    discount::Union{Float64, Nothing} = nothing,
-    domestic::Bool = false)
+function compute_scc(model::model_choice, scenario_choice::scenario_choice=nothing; 
+    gas::Union{Symbol,Nothing}=nothing,
+    year::Union{Int,Nothing}=nothing, 
+    discount::Union{Float64,Nothing}=nothing,
+    domestic::Bool=false)
 
     # Check the gas
     if gas === nothing
@@ -140,11 +140,11 @@ function compute_scc(model::model_choice, scenario_choice::scenario_choice = not
 
     # dispatch on provided model choice
     if model == DICE 
-        return compute_dice_scc(scenario_choice, gas, year, discount, domestic = domestic)
+        return compute_dice_scc(scenario_choice, gas, year, discount, domestic=domestic)
     elseif model == FUND 
-        return compute_fund_scc(scenario_choice, gas, year, discount, domestic = domestic)
+        return compute_fund_scc(scenario_choice, gas, year, discount, domestic=domestic)
     elseif model == PAGE 
-        return compute_page_scc(scenario_choice, gas, year, discount, domestic = domestic)
+        return compute_page_scc(scenario_choice, gas, year, discount, domestic=domestic)
     else
         error()
     end

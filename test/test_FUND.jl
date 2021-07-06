@@ -15,15 +15,15 @@ _atol = 1e-3
         run(m)
 
         md1 = MimiIWG.get_marginaldamages(FUND, MimiIWG.scenarios[1], gas=:CO2, year=2020, discount=0.)
-        md2 = MimiIWG.get_marginaldamages(FUND, MimiIWG.scenarios[1], gas=:CO2, year=2020, discount=0., regional = true)
+        md2 = MimiIWG.get_marginaldamages(FUND, MimiIWG.scenarios[1], gas=:CO2, year=2020, discount=0., regional=true)
 
         scc1 = MimiIWG.compute_scc(FUND, MimiIWG.scenarios[1], gas=:CO2, year=2020, discount=0.03)
-        scc2 = MimiIWG.compute_scc(FUND, MimiIWG.scenarios[1], gas=:CO2, year=2020, discount=0.03, domestic = true)
+        scc2 = MimiIWG.compute_scc(FUND, MimiIWG.scenarios[1], gas=:CO2, year=2020, discount=0.03, domestic=true)
         @test scc2 < scc1  # test global SCC is larger than domestic SCC
 
         # Test monte carlo simulation runs without error
         tmp_dir = joinpath(@__DIR__, "tmp")
-        MimiIWG.run_scc_mcs(FUND, gas=:CO2, trials=2, output_dir = tmp_dir, domestic=true)
+        MimiIWG.run_scc_mcs(FUND, gas=:CO2, trials=2, output_dir=tmp_dir, domestic=true)
         rm(tmp_dir, recursive=true)
     end
 
@@ -46,7 +46,7 @@ _atol = 1e-3
                 idx += 1
             end
         end
-    end
+            end
 
     # Methane
     @testset "Deterministic SC-CH4 validation" begin

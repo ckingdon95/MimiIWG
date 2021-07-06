@@ -36,16 +36,16 @@ If `save_md` equals `true`, then global undiscounted marginal damages from each 
 the simulation will be saved in a subdirectory "output/marginal_damages".
 """
 function run_scc_mcs(model::model_choice; 
-    gas::Union{Symbol, Nothing} = nothing,
-    trials::Int = 10000,
-    perturbation_years::Vector{Int} = _default_perturbation_years,
-    discount_rates::Vector{Float64} = _default_discount_rates, 
-    domestic::Bool = false,
-    output_dir::Union{String, Nothing} = nothing, 
-    save_trials::Bool = false,
-    tables::Bool = true,
-    drop_discontinuities::Bool = false,
-    save_md::Bool = false)
+    gas::Union{Symbol,Nothing}=nothing,
+    trials::Int=10000,
+    perturbation_years::Vector{Int}=_default_perturbation_years,
+    discount_rates::Vector{Float64}=_default_discount_rates, 
+    domestic::Bool=false,
+    output_dir::Union{String,Nothing}=nothing, 
+    save_trials::Bool=false,
+    tables::Bool=true,
+    drop_discontinuities::Bool=false,
+    save_md::Bool=false)
 
     # Check the gas
     if gas === nothing
@@ -65,7 +65,7 @@ function run_scc_mcs(model::model_choice;
         scenario_args = [:scenario => scenarios, :rate => discount_rates]
 
         last_idx = _default_horizon - 2005 + 1
-        discount_factors = Dict([rate => [(1 + rate) ^ y for y in 0:last_idx-1] for rate in discount_rates]) # precompute discount factors
+        discount_factors = Dict([rate => [(1 + rate)^y for y in 0:last_idx - 1] for rate in discount_rates]) # precompute discount factors
         nyears = length(dice_years) # Run the full length to 2405, but nothing past 2300 gets used for the SCC
         model_years = dice_years
 
@@ -106,7 +106,7 @@ function run_scc_mcs(model::model_choice;
         scenario_args = [:scenarios => scenarios, :discount_rates => discount_rates]
 
         # Precompute discount factors for each of the discount rates
-        discount_factors = [[(1 / (1 + r)) ^ (Y - 2000) for Y in page_years] for r in discount_rates]
+        discount_factors = [[(1 / (1 + r))^(Y - 2000) for Y in page_years] for r in discount_rates]
         model_years = page_years
         nyears = length(page_years)
 
@@ -116,7 +116,7 @@ function run_scc_mcs(model::model_choice;
         post_trial_func = page_post_trial_func
 
         # Set the base and marginal models
-        base, marginal = get_marginal_page_models(scenario_choice = USG1, gas = gas) # Need to set a scenario so the model can be built, but the scenarios will change in the simulation
+        base, marginal = get_marginal_page_models(scenario_choice=USG1, gas=gas) # Need to set a scenario so the model can be built, but the scenarios will change in the simulation
         models = [base, marginal]
     end
 
@@ -131,19 +131,19 @@ function run_scc_mcs(model::model_choice;
         all_years = copy(perturbation_years)    # preserve a copy of the original desired SCC years
         _first_idx = findlast(y -> y <= minimum(all_years), model_years)
         _last_idx = findfirst(y -> y >= maximum(all_years), model_years)
-        perturbation_years = model_years[_first_idx : _last_idx]  # figure out which years of the model's time index we need to use to cover all desired perturbation years
+        perturbation_years = model_years[_first_idx:_last_idx]  # figure out which years of the model's time index we need to use to cover all desired perturbation years
     end
 
     # For each run, this array will store whether there is a discrepency between the base and marginal models triggering the discontinuity damages in different timesteps
     if model == PAGE
-        discontinuity_mismatch = Array{Bool, 4}(undef, trials, length(perturbation_years), length(scenarios), length(discount_rates))
+        discontinuity_mismatch = Array{Bool,4}(undef, trials, length(perturbation_years), length(scenarios), length(discount_rates))
         push!(payload, discontinuity_mismatch)
     end
 
     # Make an array to hold all calculated scc values
-    SCC_values = Array{Float64, 4}(undef, trials, length(perturbation_years), length(scenarios), length(discount_rates))
+    SCC_values = Array{Float64,4}(undef, trials, length(perturbation_years), length(scenarios), length(discount_rates))
     if domestic 
-        SCC_values_domestic = Array{Float64, 4}(undef, trials, length(perturbation_years), length(scenarios), length(discount_rates))
+        SCC_values_domestic = Array{Float64,4}(undef, trials, length(perturbation_years), length(scenarios), length(discount_rates))
     else
         SCC_values_domestic = nothing 
     end
@@ -153,7 +153,7 @@ function run_scc_mcs(model::model_choice;
         if model == PAGE && discount_rates != [0.]
             error("Cannot save undiscounted marginal damages for PAGE unless `discount_rates = [0.]`")
         end
-        md_values = Array{Float64, 4}(undef, length(perturbation_years), length(scenarios), length(model_years), trials)
+        md_values = Array{Float64,4}(undef, length(perturbation_years), length(scenarios), length(model_years), trials)
     else
         md_values = nothing
     end
@@ -167,13 +167,13 @@ function run_scc_mcs(model::model_choice;
 
     # Run the simulation
     sim_results = run(mcs, models, trials;
-        trials_output_filename = trials_filepath, 
-        ntimesteps = nyears,    
-        scenario_func = scenario_func, 
-        scenario_args = scenario_args,
-        post_trial_func = post_trial_func
+        trials_output_filename=trials_filepath, 
+        ntimesteps=nyears,    
+        scenario_func=scenario_func, 
+        scenario_args=scenario_args,
+        post_trial_func=post_trial_func
     )
-    SCC_values, SCC_values_domestic, md_values = Mimi.payload(sim_results)[end-2:end]
+    SCC_values, SCC_values_domestic, md_values = Mimi.payload(sim_results)[end - 2:end]
 
     # Save the marginal damage matrices
     if save_md
@@ -189,14 +189,14 @@ function run_scc_mcs(model::model_choice;
 
     # generic interpolation if user requested SCC values for years in between model_years
     if _need_to_interpolate
-        new_SCC_values = Array{Float64, 4}(undef, trials, length(all_years), length(scenarios), length(discount_rates))
+        new_SCC_values = Array{Float64,4}(undef, trials, length(all_years), length(scenarios), length(discount_rates))
         for i in 1:trials, j in 1:length(scenarios), k in 1:length(discount_rates)
             new_SCC_values[i, :, j, k] = _interpolate(SCC_values[i, :, j, k], perturbation_years, all_years)
         end
         SCC_values = new_SCC_values 
 
         if domestic 
-            new_domestic_values = Array{Float64, 4}(undef, trials, length(all_years), length(scenarios), length(discount_rates))
+            new_domestic_values = Array{Float64,4}(undef, trials, length(all_years), length(scenarios), length(discount_rates))
             for i in 1:trials, j in 1:length(scenarios), k in 1:length(discount_rates)
                 new_domestic_values[i, :, j, k] = _interpolate(SCC_values_domestic[i, :, j, k], perturbation_years, all_years)
             end
@@ -204,7 +204,7 @@ function run_scc_mcs(model::model_choice;
         end
 
         # reset perturbation years to all user requested years, unless model is PAGE, for which this is done below
-        if model != PAGE
+    if model != PAGE
             perturbation_years = all_years
         end
     end
@@ -227,7 +227,7 @@ function run_scc_mcs(model::model_choice;
         # has the same 4-D array structure as the SCC values, so can use the same function to save them to files
         write_scc_values(discontinuity_mismatch, disc_dir, perturbation_years, discount_rates)
 
-        disc_sum = dropdims(sum(discontinuity_mismatch, dims=(1,3)), dims=(1,3)) # summary table of how many occured (rows are perturbation years, columns are discount rates)
+        disc_sum = dropdims(sum(discontinuity_mismatch, dims=(1, 3)), dims=(1, 3)) # summary table of how many occured (rows are perturbation years, columns are discount rates)
         writedlm(joinpath(disc_dir, "discontinuity_summary.csv"), disc_sum, ',') 
     end
 

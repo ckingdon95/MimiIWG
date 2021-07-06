@@ -1,7 +1,7 @@
 """
     Returns the IWG version of the DICE 2010 model for the specified scenario.
 """
-function get_dice_model(scenario_choice::Union{scenario_choice, Nothing}=nothing)
+function get_dice_model(scenario_choice::Union{scenario_choice,Nothing}=nothing)
 
     # Get the original default version of DICE2010
     m = MimiDICE2010.construct_dice()
@@ -25,7 +25,7 @@ function get_dice_model(scenario_choice::Union{scenario_choice, Nothing}=nothing
     update_params!(m, iwg_params)
 
     # Add the scenario choice component and load all the scenario parameter values
-    add_comp!(m, IWG_DICE_ScenarioChoice, :IWGScenarioChoice; before = :grosseconomy)
+    add_comp!(m, IWG_DICE_ScenarioChoice, :IWGScenarioChoice; before=:grosseconomy)
     set_dimension!(m, :scenarios, length(scenarios))
     set_dice_all_scenario_params!(m)
      
@@ -44,8 +44,8 @@ set_dice_all_scenario_params!(m::Model; comp_name::Symbol = :IWGScenarioChoice, 
     comp_name: the name of the IWGScenarioChoice component in the model, defaults to :IWGScenarioChoice
     connect: whether or not to connect the outgoing variables to the other components who depend on them as parameter values
 """
-function set_dice_all_scenario_params!(m::Model; comp_name::Symbol = :IWGScenarioChoice, connect::Bool = true)
-    params_dict = Dict{Symbol, Array}([k=>[] for k in dice_scenario_specific_params])
+function set_dice_all_scenario_params!(m::Model; comp_name::Symbol=:IWGScenarioChoice, connect::Bool=true)
+    params_dict = Dict{Symbol,Array}([k => [] for k in dice_scenario_specific_params])
 
     # add an array of each scenario's value to the dictionary
     for scenario in scenarios
@@ -66,11 +66,11 @@ function set_dice_all_scenario_params!(m::Model; comp_name::Symbol = :IWGScenari
     end
 
     if connect 
-        connect_all!(m, [:grosseconomy, :neteconomy], comp_name=>:l)
-        connect_param!(m, :co2cycle=>:E, comp_name=>:E)
-        connect_param!(m, :radiativeforcing=>:forcoth, comp_name=>:forcoth)
-        connect_param!(m, :grosseconomy=>:al, comp_name=>:al)
-        connect_param!(m, :grosseconomy=>:k0, comp_name=>:k0)
+        connect_all!(m, [:grosseconomy, :neteconomy], comp_name => :l)
+        connect_param!(m, :co2cycle => :E, comp_name => :E)
+        connect_param!(m, :radiativeforcing => :forcoth, comp_name => :forcoth)
+        connect_param!(m, :grosseconomy => :al, comp_name => :al)
+        connect_param!(m, :grosseconomy => :k0, comp_name => :k0)
     end
 
 end
@@ -86,7 +86,7 @@ function load_dice_scenario_params(scenario_choice, scenario_file=nothing)
     delta = 0.1        # Capital depreciation rate [yr^-1], from DICE2010
     s     = 0.23       # Approximate optimal savings in DICE2010 
     
-    params = Dict{Any, Any}()
+    params = Dict{Any,Any}()
     nyears = length(dice_years)
 
     # Get the scenario number
@@ -120,10 +120,10 @@ function load_dice_scenario_params(scenario_choice, scenario_file=nothing)
     al = zeros(nyears)   
     K = zeros(nyears)
     al[1] = A0
-    K[1] = (Y[1] / al[1] / (N[1] ^ (1 - gamma))) ^ (1 / gamma)
+    K[1] = (Y[1] / al[1] / (N[1]^(1 - gamma)))^(1 / gamma)
     for t in 2:nyears
-        K[t] = K[t-1] * (1 - delta) ^ 10 + s * Y[t-1] * 10
-        al[t] = Y[t] / (N[t] + eps()) ^ (1 - gamma) / (K[t] + eps()) ^ gamma
+        K[t] = K[t - 1] * (1 - delta)^10 + s * Y[t - 1] * 10
+        al[t] = Y[t] / (N[t] + eps())^(1 - gamma) / (K[t] + eps())^gamma
     end
 
     # Update these parameters for grosseconomy component
@@ -138,7 +138,7 @@ end
 """
 function load_dice_iwg_params()
 
-    params = Dict{Any, Any}()
+    params = Dict{Any,Any}()
     nyears = length(dice_years)
 
     # Replace some parameter values to match EPA's matlab code
@@ -190,7 +190,7 @@ function get_dice_marginaldamages(scenario_choice::scenario_choice, gas::Symbol,
         nyears = length(dice_years)
         DF = zeros(nyears)
         first = findfirst(isequal(year), dice_years)
-        DF[first:end] = [1/(1+discount)^t for t in 0:(nyears-first)]
+        DF[first:end] = [1 / (1 + discount)^t for t in 0:(nyears - first)]
         return diff .* DF
     else
         return diff
@@ -230,7 +230,7 @@ function add_dice_marginal_emissions!(m::Model, gas::Symbol, year=nothing)
             f_delta = [_get_dice_additional_forcing(scenario_num, gas, year)..., zeros(11)...]
         end
     
-        add_comp!(m, Mimi.adder, :additional_forcing, before = :radiativeforcing)
+        add_comp!(m, Mimi.adder, :additional_forcing, before=:radiativeforcing)
         connect_param!(m, :additional_forcing => :input, :IWGScenarioChoice => :forcoth)
         set_param!(m, :additional_forcing, :add, f_delta)
         connect_param!(m, :radiativeforcing => :forcoth, :additional_forcing => :output)
@@ -270,7 +270,7 @@ end
     Returns the Social Cost of the specified `gas` for a given `year` and `discount` rate 
     from one deterministic run of the IWG-DICE model for the specified scenario.
 """
-function compute_dice_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; domestic::Bool = false, horizon::Int = _default_horizon)
+function compute_dice_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; domestic::Bool=false, horizon::Int=_default_horizon)
 
     # Check if the emissions year is valid, and whether or not we need to interpolate
     _is_mid_year = false
@@ -288,14 +288,14 @@ function compute_dice_scc(scenario_choice::scenario_choice, gas::Symbol, year::I
 
     DF = zeros(length(annual_years)) 
     first = findfirst(isequal(year), annual_years)
-    DF[first:end] = [1/(1+discount)^t for t in 0:(length(annual_years)-first)]
+    DF[first:end] = [1 / (1 + discount)^t for t in 0:(length(annual_years) - first)]
 
     scc = sum(annual_md .* DF)
 
     if _is_mid_year     # need to calculate SCC for next year in time index as well, then interpolate for desired year
         lower_scc = scc
         next_year = dice_years[findfirst(isequal(year), dice_years) + 1]
-        upper_scc = compute_dice_scc(scenario_choice, gas, next_year, discount, domestic = false, horizon = horizon)
+        upper_scc = compute_dice_scc(scenario_choice, gas, next_year, discount, domestic=false, horizon=horizon)
         scc = _interpolate([lower_scc, upper_scc], [year, next_year], [mid_year])[1]
     end 
 

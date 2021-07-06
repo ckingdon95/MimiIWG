@@ -32,7 +32,7 @@
         elseif p.t2xco2 < 0.5
             v.TATM[t] = v.TA_eq[t]
         else
-            v.TATM[t] = v.TATM[t - 1] + p.c1 * ((p.FORC[t] - (p.fco22x/p.t2xco2) * v.TATM[t - 1]) - (p.c3 * (v.TATM[t - 1] - v.TOCEAN[t - 1])))
+            v.TATM[t] = v.TATM[t - 1] + p.c1 * ((p.FORC[t] - (p.fco22x / p.t2xco2) * v.TATM[t - 1]) - (p.c3 * (v.TATM[t - 1] - v.TOCEAN[t - 1])))
         end
 
         # Define function for TOCEAN

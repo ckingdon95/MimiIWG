@@ -6,21 +6,21 @@
     scenarios = Index()
 
     # Variables (each one has its value set for the chosen scenario in the first timestep)
-    l       = Variable(index = [time])  # Population
-    E       = Variable(index = [time])  # Total CO2 emissions
-    forcoth = Variable(index = [time])  # other forcing
-    al      = Variable(index = [time])  # total factor productivity
+    l       = Variable(index=[time])  # Population
+    E       = Variable(index=[time])  # Total CO2 emissions
+    forcoth = Variable(index=[time])  # other forcing
+    al      = Variable(index=[time])  # total factor productivity
     k0      = Variable()                # initial capital stock
 
     # The number for which scenario to use 
     scenario_num = Parameter{Integer}()
 
     # Parameters (each one holds all five scenarios)
-    l_all       = Parameter(index = [time, scenarios])
-    E_all       = Parameter(index = [time, scenarios])
-    forcoth_all = Parameter(index = [time, scenarios])
-    al_all      = Parameter(index = [time, scenarios])
-    k0_all      = Parameter(index = [scenarios])
+    l_all       = Parameter(index=[time, scenarios])
+    E_all       = Parameter(index=[time, scenarios])
+    forcoth_all = Parameter(index=[time, scenarios])
+    al_all      = Parameter(index=[time, scenarios])
+    k0_all      = Parameter(index=[scenarios])
 
     function run_timestep(p, v, d, t)
         if is_first(t)
