@@ -24,6 +24,11 @@ using DelimitedFiles
     MimiIWG.run_scc_mcs(PAGE, trials=2, output_dir = tmp_dir, domestic=true, drop_discontinuities = true)
     rm(tmp_dir, recursive=true)
 
+    # make sure old and new discounting keyword args work
+    scc_old = MimiIWG.compute_scc(PAGE, USG1; gas=:CO2, year=2020, discount=0.025)
+    scc_new = MimiIWG.compute_scc(PAGE, USG1; gas=:CO2, year=2020, prtp=0.025)
+    @test scc_old ≈ scc_new atol = 1e-12
+
 end
 
 @testset "Deterministic SCC validation" begin 
@@ -46,12 +51,24 @@ end
                 discount    = validation_data[line, 2]
                 iwg_scc     = validation_data[line, 3] * MimiIWG.page_inflator     # 2000$ => $2007
 
-                mimi_scc = MimiIWG.compute_scc(PAGE, scenario_convert_flip[scenario], year=year, discount=discount)
+                mimi_scc = MimiIWG.compute_scc(PAGE, scenario_convert_flip[scenario], year=year, prtp=discount)
                 # println(iwg_scc, ",", mimi_scc)
                 @test iwg_scc ≈ mimi_scc atol = _atol
             end
         end
     end 
+
+    @testset "Deterministic Ramsey SCC" begin 
+        
+        scc1 = MimiIWG.compute_scc(PAGE, MimiIWG.USG1, prtp = 0.01, eta = 1., gas = :CO2, year = 2020)
+        scc2 = MimiIWG.compute_scc(PAGE, MimiIWG.USG1, prtp = 0.01, eta = 1.5, gas = :CO2, year = 2020)
+
+        scc3 = MimiIWG.compute_scc(PAGE, MimiIWG.USG1, prtp = 0.03, eta = 1., gas = :CO2, year = 2020)
+        scc4 = MimiIWG.compute_scc(PAGE, MimiIWG.USG1, prtp = 0.03, eta = 1.5, gas = :CO2, year = 2020)
+
+        @test scc1 > scc2 > scc3 > scc4
+
+    end
 
 end 
 

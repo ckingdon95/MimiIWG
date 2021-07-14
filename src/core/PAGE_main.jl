@@ -228,9 +228,13 @@ end
 function getpageindexlengthfromyear(year)
     if year == 2010
         return 10
+    end
+
+    if year == 2300
+        return 50
     end 
     
-    i = findfirst(page_years, year)
+    i = findfirst(isequal(year), page_years)
     if i == 0
         error("Invalid PAGE year: $year.")
     end 
@@ -248,19 +252,22 @@ function getperiodlength(year)
     return (page_years[i+1] - page_years[i-1]) / 2
 end
 
-
 """
     Returns marginal damages each year from an additional emissions pulse in the specified year. 
     User must specify an IWG scenario `scenario_choice`.
     If no `year` is specified, will run for an emissions pulse in $_default_year.
-    If no `discount` is specified, will return undiscounted marginal damages.
-    Default returns global values; specify `regional=true` for regional values.
+    Default returns global values; specify `regional=true` for regional values or
+    `domestic = true` for US values.
 """
-function get_page_marginaldamages(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; regional::Bool=false)
+function get_page_marginaldamages(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; domestic::Bool = false, regional::Bool=false, return_m::Bool = false)
 
     # Check the emissions year
     if ! (year in page_years)
         error("$year not a valid year; must be in model's time index $page_years.")
+    end
+
+    if domestic && regional
+        error("Only one of `domestic` and `regional` can be true at once time.")
     end
 
     base, marginal = get_marginal_page_models(scenario_choice=scenario_choice, gas=gas, year=year, discount=discount)
@@ -273,12 +280,21 @@ function get_page_marginaldamages(scenario_choice::scenario_choice, gas::Symbol,
         marg_impacts = marginal[:EquityWeighting, :widt_equityweightedimpact_discounted]
     end
 
-    marg_damages = (marg_impacts .- base_impacts) ./ (gas == :CO2 ? 100_000 : 1)     # TODO: comment with specified units here
+    pulse_size = gas == :CO2 ? 100_000 : 1
+    marg_damages = (marg_impacts .- base_impacts) ./ pulse_size
 
     if regional
-        return marg_damages
+        md = marg_damages
+    elseif domestic
+        md = marg_damages[:, 2] # US is the second region
+    else # global
+        md = sum(marg_damages, dims = 2)[:] # sum along second dimension to get global values and convert to Vector 
+    end
+
+    if return_m
+        return (md, base)
     else
-        return sum(marg_damages, dims = 2) # sum along second dimension to get global values
+        return md
     end
 end
 
@@ -295,9 +311,15 @@ end
 function get_marginal_page_models(; scenario_choice::Union{scenario_choice, Nothing}=nothing, gas::Symbol=:CO2, year=nothing, discount=nothing)
 
     base = get_page_model(scenario_choice)
+    
+    # NOTES:
+    # - eta (m[:EquityWeighting, :emuc_utilityconvexity]) is zero in all scenarios 
+    # - prtp (:ptp_timepreference) defaults to 3%
+
     if discount != nothing
         update_param!(base, :ptp_timepreference, discount * 100)
     end
+
     marginal = Model(base)
 
     if gas == :CO2
@@ -361,9 +383,9 @@ end
     Returns the Social Cost of the specified `gas` for a given `year` and `discount` rate from one deterministic run of the IWG-PAGE model.
     User must specify an IWG scenario `scenario_choice`.
     If no `year` is specified, will return SCC for $_default_year.
-    If no `discount` is specified, will return SCC for a discount rate of $(_default_discount * 100)%.
+    If no `prtp` is specified, will return SC for a prtp of $(_default_discount * 100)%.
 """
-function compute_page_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; domestic=false)
+function compute_page_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, prtp::Float64; eta::Float64 = 0., domestic=false)
 
     # Check the emissions year
     _need_to_interpolate = false
@@ -375,9 +397,54 @@ function compute_page_scc(scenario_choice::scenario_choice, gas::Symbol, year::I
         year = filter(x-> x < year, page_years)[end]    # use the last year less than the desired year as the lower scc value
     end
 
-    base, marginal = get_marginal_page_models(scenario_choice=scenario_choice, gas=gas, year=year, discount=discount)
-    DF = [(1 / (1 + discount)) ^ (Y - 2000) for Y in page_years]
-    idx = getpageindexfromyear(year)
+    scc = _compute_page_scc(scenario_choice, gas, year, prtp, eta, domestic=domestic)
+
+    if _need_to_interpolate     # need to calculate SCC for next year in time index as well, then interpolate for desired year
+        lower_scc = scc
+        next_year = page_years[findfirst(page_years, year) + 1] 
+        upper_scc = compute_page_scc(scenario_choice, gas, next_year, prtp, eta=eta, domestic=domestic)
+        scc = _interpolate([lower_scc, upper_scc], [year, next_year], [mid_year])[1]
+    end 
+
+    return scc
+end
+
+# helper function for computing SCC from two run models 
+function _compute_page_scc(scenario_choice, gas, year, prtp, eta; domestic=false)
+
+    # Get undiscounted marginal damages
+    md, base = MimiIWG.get_page_marginaldamages(scenario_choice, gas, year, 0., return_m = true, domestic = domestic)   
+
+    p_idx = MimiIWG.getpageindexfromyear(year)
+    idx_lengths = [MimiIWG.getpageindexlengthfromyear(y) for y in MimiIWG.page_years]
+    idx_lengths = [10, diff(page_years)...]
+    cpc = sum(base[:GDP, :cons_consumption], dims=2) ./ sum(base[:GDP, :pop_population], dims=2)
+    cpc = cpc[:] # just get the Array no Matrix
+    
+    g1 = NaN
+    g = [g1, [(cpc[i]/cpc[i-1]) ^ (1/idx_lengths[i]) - 1 for i in 2:length(MimiIWG.page_years)]...]
+    r = prtp .+ eta .* g
+
+    df = zeros(length(MimiIWG.page_years))
+    df[p_idx] = 1
+    df[p_idx+1:end] = [prod([(1 + r[i])^(-1 * idx_lengths[i]) for i in p_idx+1:t]) for t in p_idx+1:length(MimiIWG.page_years)]
+    
+    md_disc = md .* df
+    md_agg = md_disc .* base[:GDP, :yagg_periodspan]
+    scc = sum(md_agg) * MimiIWG.page_inflator
+
+    return scc
+
+end
+
+# old way of computing the scc when we didn't use eta at all and assumed constant
+# discount 
+function _compute_page_scc_old(scenario_choice, gas, year, prtp; domestic=false)
+
+    base, marginal = get_marginal_page_models(scenario_choice=scenario_choice, gas=gas, year=year, discount=prtp)
+
+    DF = [(1 / (1 + prtp)) ^ (Y - 2000) for Y in page_years]
+    p_idx = getpageindexfromyear(year)
 
     if domestic
         td_base = sum(base[:EquityWeighting, :addt_equityweightedimpact_discountedaggregated][:, 2])  # US is the second region; then sum across time
@@ -386,20 +453,13 @@ function compute_page_scc(scenario_choice::scenario_choice, gas::Symbol, year::I
         td_base = base[:EquityWeighting, :td_totaldiscountedimpacts]
         td_marginal = marginal[:EquityWeighting, :td_totaldiscountedimpacts] 
     end
-        
+
     EMUC = base[:EquityWeighting, :emuc_utilityconvexity]
-    UDFT_base = DF[idx] * (base[:EquityWeighting, :cons_percap_consumption][idx, 1] / base[:EquityWeighting, :cons_percap_consumption_0][1]) .^ (-EMUC)
-    UDFT_marginal = DF[idx] * (marginal[:EquityWeighting, :cons_percap_consumption][idx, 1] / base[:EquityWeighting, :cons_percap_consumption_0][idx]) ^ (-EMUC)
+
+    UDFT = DF[p_idx] * (base[:EquityWeighting, :cons_percap_consumption][p_idx, 1] / base[:EquityWeighting, :cons_percap_consumption_0][1]) .^ (-EMUC)
 
     pulse_size = gas == :CO2 ? 100_000 : 1
-    scc = ((td_marginal / UDFT_marginal) - (td_base / UDFT_base)) / pulse_size * page_inflator
-
-    if _need_to_interpolate     # need to calculate SCC for next year in time index as well, then interpolate for desired year
-        lower_scc = scc
-        next_year = page_years[findfirst(page_years, year) + 1] 
-        upper_scc = compute_page_scc(scenario_choice, next_year, discount, domestic=domestic)
-        scc = _interpolate([lower_scc, upper_scc], [year, next_year], [mid_year])[1]
-    end 
+    scc = ((td_marginal / UDFT) - (td_base / UDFT)) / pulse_size * page_inflator
 
     return scc
 end

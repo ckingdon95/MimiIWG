@@ -130,3 +130,18 @@ function make_summary_table(output_dir, gas, discount_rates, perturbation_years,
     writedlm(table, data, ',')
     nothing 
 end
+
+function discrete_df(prtp, eta, g)
+    r = prtp .+ eta .* g     # calculate annual discount rates
+    df = [1, [prod([(1 + r[i])^-1 for i in 2:t]) for t in 2:length(r)]...] # calculate the discount factor for each year using discrete time discounting
+    return df
+end
+
+# marginaldamages: stream of global marginal damages starting in the scc emission year
+# g: stream of annual global gdp/cap growth rates starting in the scc emission year 
+function scc_discrete(marginaldamages, prtp, eta, g; timestep=1)
+    discount_factor = discrete_df(prtp, eta, g)   
+    npv_md = discount_factor .* marginaldamages * timestep    # calculate net present value of marginal damages in each year
+    scc = sum(npv_md)    # sum damages to the scc
+    return scc
+end

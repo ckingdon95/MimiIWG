@@ -153,7 +153,7 @@ function load_dice_iwg_params()
     return params
 end
 
-function get_dice_marginal_model(scen::scenario_choice; gas::Symbol, year::Int)
+function get_dice_marginal_model(scen::scenario_choice; gas::Symbol = :CO2, year::Int = 2020)
     base = get_dice_model(scen)
     mm = create_marginal_model(base)
     add_dice_marginal_emissions!(mm.modified, gas, year)
@@ -163,7 +163,7 @@ end
 """
     Returns marginal damages each year from an additional ton of the specified `gas` in the specified year. 
  """
-function get_dice_marginaldamages(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64) 
+function get_dice_marginaldamages(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; return_m::Bool = false) 
 
     # Check the emissions year
     _is_mid_year = false
@@ -191,9 +191,15 @@ function get_dice_marginaldamages(scenario_choice::scenario_choice, gas::Symbol,
         DF = zeros(nyears)
         first = findfirst(isequal(year), dice_years)
         DF[first:end] = [1/(1+discount)^t for t in 0:(nyears-first)]
-        return diff .* DF
+        md = diff .* DF
     else
-        return diff
+        md = diff
+    end
+
+    if return_m
+        return (md, mm.base)
+    else
+        return md
     end
 
 end
@@ -267,10 +273,11 @@ function perturb_dice_marginal_emissions!(marginal::Model, gas::Symbol, year::In
 end
 
 """
-    Returns the Social Cost of the specified `gas` for a given `year` and `discount` rate 
-    from one deterministic run of the IWG-DICE model for the specified scenario.
+    Returns the Social Cost of the specified `gas` for a given `year` and `prtp` 
+    pure rate of time preference parameterizing a sicount rate from one deterministic 
+    run of the IWG-DICE model for the specified scenario.
 """
-function compute_dice_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, discount::Float64; domestic::Bool = false, horizon::Int = _default_horizon)
+function compute_dice_scc(scenario_choice::scenario_choice, gas::Symbol, year::Int, prtp::Float64; eta::Float64 = 0., domestic::Bool = false, horizon::Int = _default_horizon)
 
     # Check if the emissions year is valid, and whether or not we need to interpolate
     _is_mid_year = false
@@ -282,20 +289,31 @@ function compute_dice_scc(scenario_choice::scenario_choice, gas::Symbol, year::I
         year = dice_years[Int(floor((year - dice_years[1]) / dice_ts) + 1)]    # first calculate for the DICE year below the specified year
     end
 
-    md = get_dice_marginaldamages(scenario_choice, gas, year, 0.)   # Get undiscounted marginal damages
+    md, m = get_dice_marginaldamages(scenario_choice, gas, year, 0., return_m = true)   # Get undiscounted marginal damages
     annual_years = dice_years[1]:horizon
     annual_md = _interpolate(md, dice_years, annual_years)   # Interpolate to annual timesteps
 
-    DF = zeros(length(annual_years)) 
-    first = findfirst(isequal(year), annual_years)
-    DF[first:end] = [1/(1+discount)^t for t in 0:(length(annual_years)-first)]
+    p_idx = findfirst(isequal(year), annual_years)
 
-    scc = sum(annual_md .* DF)
+    cpc = m[:neteconomy, :CPC]
+
+    # g1 changed from NaN to repeat the first value in g_decades
+    #
+    # Keeping g1 as NaN causes errors when calculating the discount factors if
+    # year < 2015 so p_idx = 1. We end up with NaNs propagating through, because 
+    # we put 1. in the first discount factor spot, but end up with NaNs in the next 
+    # 9 spots.  We could also set g1 to 0. using slightly different assumptions.
+    
+    g1 = (cpc[2]/cpc[1])^(1/10) - 1 # could also go with 0. here? Or NaN but breaks year < 2015
+    g_decades = [g1, [(cpc[t]/cpc[t-1])^(1/10) - 1 for t in 2:length(cpc)]...]
+    g = reduce(vcat, map(x->fill(x, 10), g_decades))
+
+    scc = scc_discrete(annual_md[p_idx:end], prtp, eta, g[p_idx:length(annual_md)])
 
     if _is_mid_year     # need to calculate SCC for next year in time index as well, then interpolate for desired year
         lower_scc = scc
         next_year = dice_years[findfirst(isequal(year), dice_years) + 1]
-        upper_scc = compute_dice_scc(scenario_choice, gas, next_year, discount, domestic = false, horizon = horizon)
+        upper_scc = compute_dice_scc(scenario_choice, gas, next_year, prtp, eta = eta, domestic = false, horizon = horizon)
         scc = _interpolate([lower_scc, upper_scc], [year, next_year], [mid_year])[1]
     end 
 
